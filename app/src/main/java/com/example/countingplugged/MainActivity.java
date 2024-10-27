@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView answer;
     private static TextInputEditText editText;
     private EditText editNumText;
-    private Button button1, button2, backButton, getUniqueWordsButton, getSentenceCountButton, paragraphGenerationButton, exportButton;
+    private Button button1, button2, backButton, getUniqueWordsButton, getSentenceCountButton, paragraphGenerationButton, exportButton, replaceWordButton;
     private static final HashSet<String> commonWords = new HashSet<>();
     private static final HashMap<String, Integer> words = new HashMap<>();
 
@@ -92,8 +92,9 @@ public class MainActivity extends AppCompatActivity {
         backButton = findViewById(R.id.backButton);
         getUniqueWordsButton = findViewById(R.id.buttonUniqueWords);
         getSentenceCountButton = findViewById(R.id.buttonSentenceCount);
-        paragraphGenerationButton = findViewById(R.id.buttonGenerateConfirm);
+        paragraphGenerationButton = findViewById(R.id.buttonParagraphGenerator);
         exportButton = findViewById(R.id.buttonExport);
+        replaceWordButton = findViewById(R.id.buttonChangeWord);
 
         // Sets the function of clicking button1 from now on.
         button1.setOnClickListener(view -> {
@@ -174,6 +175,11 @@ public class MainActivity extends AppCompatActivity {
             createPdf();
             Toast.makeText(getApplicationContext(), "PDF exported successfully", Toast.LENGTH_SHORT).show();
         });
+        replaceWordButton.setOnClickListener(view -> {
+            String[] words = editNumText.getText().toString().split("\\|");
+            replaceWordToPdf(replaceWord(words[0], words[1]));
+            Toast.makeText(this, "Read PDF", Toast.LENGTH_LONG).show();
+        });
     }
 
     /**
@@ -208,13 +214,19 @@ public class MainActivity extends AppCompatActivity {
         newTextChecker();
         int count = 0;
         try {
-            AssetManager assetManager = getAssets();
-            Scanner scanner = new Scanner(assetManager.open(filePath));
+            String text;
+            if (filePath.endsWith(".pdf")) {
+                text = readTextFromPdf(filePath);
+            } else {
+                text = readTextFromAsset(filePath);
+            }
+            Scanner scanner = new Scanner(text);
             scanner.useDelimiter("[\\p{Punct}\\s&&[^'’]]+");
             while (scanner.hasNext()) {
                 scanner.next();
                 count++;
             }
+            scanner.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -222,17 +234,24 @@ public class MainActivity extends AppCompatActivity {
         wordCount = count;
         return count;
     }
+
     public int getSentenceCount(String filePath) {
         newTextChecker();
         int count = 0;
         try {
-            AssetManager assetManager = getAssets();
-            Scanner scanner = new Scanner(assetManager.open(filePath));
+            String text;
+            if (filePath.endsWith(".pdf")) {
+                text = readTextFromPdf(filePath);
+            } else {
+                text = readTextFromAsset(filePath);
+            }
+            Scanner scanner = new Scanner(text);
             scanner.useDelimiter("[.!?]");
             while (scanner.hasNext()) {
                 scanner.next();
                 count++;
             }
+            scanner.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -240,16 +259,22 @@ public class MainActivity extends AppCompatActivity {
         sentenceCount = count;
         return count;
     }
+
     public int getUniqueWords(String filePath) {
         newTextChecker();
         HashSet<String> uniqueWordsMap = new HashSet<>();
         HashSet<String> bannedWords = new HashSet<>();
         try {
-            AssetManager assetManager = getAssets();
-            Scanner scanner = new Scanner(assetManager.open(filePath));
+            String text;
+            if (filePath.endsWith(".pdf")) {
+                text = readTextFromPdf(filePath);
+            } else {
+                text = readTextFromAsset(filePath);
+            }
+            Scanner scanner = new Scanner(text);
             scanner.useDelimiter("[\\p{Punct}\\s&&[^'’]]+");
             while (scanner.hasNext()) {
-                String word = scanner.next().toLowerCase(); // Store the scanned word
+                String word = scanner.next().toLowerCase();
                 if (!uniqueWordsMap.contains(word) && !bannedWords.contains(word)) {
                     uniqueWordsMap.add(word);
                 } else {
@@ -257,13 +282,54 @@ public class MainActivity extends AppCompatActivity {
                     bannedWords.add(word);
                 }
             }
-            scanner.close(); // Close the scanner after use
+            scanner.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
         currentFileName = editText.getText().toString();
         uniqueWords = uniqueWordsMap.size();
         return uniqueWordsMap.size();
+    }
+    public String replaceWord(String word, String newWord) {
+        String text = null;
+        try {
+            if (editText.getText().toString().endsWith(".pdf")) {
+                text = readTextFromPdf(editText.getText().toString());
+            } else {
+                text = readTextFromAsset(editText.getText().toString());
+            }
+
+            // Check if text is not null before performing replacement
+            if (text != null) {
+                text = text.replace(word, newWord);
+            } else {
+                // Handle the case where text is null (e.g., file read error)
+                text = "Error: Unable to read text from the file.";
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            // Handle the IOException, you may want to log the exception or take other actions
+            text = "Error: IOException occurred during text processing.";
+        }
+        return text;
+    }
+    /**
+     *
+     * @param filePath
+     * @return text extracted from TXT file
+     * @throws IOException
+     */
+    private String readTextFromAsset(String filePath) throws IOException {
+        AssetManager assetManager = getAssets();
+        InputStream inputStream = assetManager.open(filePath);
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+        StringBuilder text = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            text.append(line).append("\n");
+        }
+        reader.close();
+        return text.toString();
     }
     /**
      * Load common words from assets
@@ -391,7 +457,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void createPdf() {
         PdfDocument document = new PdfDocument();
-        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(300, 600, 1).create();
+        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(300, 1500, 1).create();
         PdfDocument.Page page = document.startPage(pageInfo);
 
         Canvas canvas = page.getCanvas();
@@ -423,7 +489,7 @@ public class MainActivity extends AppCompatActivity {
                 yPosition += 30;
             }
         }
-
+        drawTextWrapped(canvas, paint, "Generated Paragraph: " + paragraph, padding, yPosition, maxWidth);
         document.finishPage(page);
 
         FileOutputStream outputStream = null;
@@ -453,7 +519,60 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+    private void replaceWordToPdf(String text) {
+        PdfDocument document = new PdfDocument();
+        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(600, 500, 1).create();
+        PdfDocument.Page page = document.startPage(pageInfo);
 
+        Canvas canvas = page.getCanvas();
+        Paint paint = new Paint();
+        paint.setTextSize(12);
+
+        int yPosition = 50;
+        int pageWidth = pageInfo.getPageWidth();
+        int padding = 50;
+        int maxWidth = pageWidth - 2 * padding;
+
+        drawTextWrapped(canvas, paint, text, padding, yPosition, maxWidth);
+        document.finishPage(page);
+        FileOutputStream outputStream = null;
+        try {
+            File directory = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+            if (directory != null && !directory.exists()) {
+                boolean dirCreated = directory.mkdirs();
+                Log.d("PDFCreation", "Directory created: " + dirCreated);
+            }
+
+            File outputFile = new File(directory, "wordChanged.pdf");
+            outputStream = new FileOutputStream(outputFile);
+            document.writeTo(outputStream);
+            Toast.makeText(this, "PDF saved to: " + outputFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            Log.d("PDFCreation", "PDF saved to: " + outputFile.getAbsolutePath());
+
+        } catch (IOException e) {
+            Log.e("PDFCreation", "Error: " + e.getMessage(), e);
+        } finally {
+            document.close();
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException e) {
+                    Log.e("PDFCreation", "Error closing stream: " + e.getMessage(), e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Draw text wrapped to a canvas to prevent spillover
+     * @param canvas
+     * @param paint
+     * @param text
+     * @param x
+     * @param y
+     * @param maxWidth
+     * @return
+     */
     private int drawTextWrapped(Canvas canvas, Paint paint, String text, int x, int y, int maxWidth) {
         String[] words = text.split(" ");
         StringBuilder line = new StringBuilder();
