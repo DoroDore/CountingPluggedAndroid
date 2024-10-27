@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Counting Plugged</string>
+    <string name="v1_0">V1.0</string>
+    <string name="text_reader">Text Reader</string>
+    <string name="start">START</string>
+    <string name="instructions">Instructions</string>
+</resources>
