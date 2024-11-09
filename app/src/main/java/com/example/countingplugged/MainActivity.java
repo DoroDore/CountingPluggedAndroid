@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -66,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
     // Create the stored values of all app functions to prevent need to rerun code
     private static int wordCount = -1;
     private static int sentenceCount = -1;
-    private static int uniqueWords = -1;
+    private static LinkedHashSet<String> uniqueWords;
     private static ArrayList<Word> topFive;
     private static String paragraph, currentFileName;
 
@@ -133,9 +134,20 @@ public class MainActivity extends AppCompatActivity {
         });
         getUniqueWordsButton.setOnClickListener(view -> {
             answer.setTextSize(TypedValue.COMPLEX_UNIT_PT, 8);
-            int count = getUniqueWords(editText.getText().toString());
-            if (count > 0) {
-                answer.setText("There are " + count + " unique words in the text file \"" + editText.getText().toString() + "\".");
+            LinkedHashSet<String> uniqueWords = getUniqueWords(editText.getText().toString());
+            if (!uniqueWords.isEmpty()) {
+                String list = "";
+                int limit = 0;
+                for (String word : uniqueWords) {
+                    list += word;
+                    limit++;
+                    if (limit == 49) {
+                        list += "...";
+                        break;
+                    }
+                    list += ", ";
+                }
+                answer.setText(list + " are unique words in the file \"" + editText.getText().toString() + "\".");
             } else {
                 answer.setText("No unique words found.");
             }
@@ -260,9 +272,9 @@ public class MainActivity extends AppCompatActivity {
         return count;
     }
 
-    public int getUniqueWords(String filePath) {
+    public LinkedHashSet<String> getUniqueWords(String filePath) {
         newTextChecker();
-        HashSet<String> uniqueWordsMap = new HashSet<>();
+        LinkedHashSet<String> uniqueWordsMap = new LinkedHashSet<>();
         HashSet<String> bannedWords = new HashSet<>();
         try {
             String text;
@@ -287,8 +299,8 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
         currentFileName = editText.getText().toString();
-        uniqueWords = uniqueWordsMap.size();
-        return uniqueWordsMap.size();
+        uniqueWords = uniqueWordsMap;
+        return uniqueWordsMap;
     }
     public String replaceWord(String word, String newWord) {
         String text = null;
@@ -346,7 +358,6 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
-
     public static ArrayList<Word> getTop(Map<String, Integer> words, HashSet<String> commonWords, int limit) {
         newTextChecker();
         ArrayList<Word> topWords = new ArrayList<>();
@@ -431,17 +442,18 @@ public class MainActivity extends AppCompatActivity {
     public static void newTextChecker() {
         if (!editText.getText().toString().equals(currentFileName)) {
             wordCount = -1;
-            uniqueWords = -1;
+            uniqueWords = null;
             sentenceCount = -1;
             topFive = null;
             paragraph = null;
         }
     }
     public void finalExportCheck() {
+        newTextChecker();
         if (wordCount == -1) {
             getWordCount(editText.getText().toString());
         }
-        if (uniqueWords == -1) {
+        if (uniqueWords == null || uniqueWords.isEmpty()) {
             getUniqueWords(editText.getText().toString());
         }
         if (sentenceCount == -1) {
@@ -456,20 +468,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void createPdf() {
+        finalExportCheck();
+
+        Paint paint = new Paint();
+        paint.setTextSize(12);
+        int padding = 50;
+        int lineHeight = (int) (paint.descent() - paint.ascent()) + 10;
+        int yPosition = lineHeight; // Start at line height for the first line
+
+        // Calculate total height needed
+        int totalHeight = calculateTotalHeight(paint, padding, lineHeight);
+
         PdfDocument document = new PdfDocument();
-        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(300, 1500, 1).create();
+        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(300, totalHeight, 1).create();
         PdfDocument.Page page = document.startPage(pageInfo);
 
         Canvas canvas = page.getCanvas();
-        Paint paint = new Paint();
-        paint.setTextSize(12);
-
-        finalExportCheck();
-        int yPosition = 50;
         int pageWidth = pageInfo.getPageWidth();
-        int padding = 50;
         int maxWidth = pageWidth - 2 * padding;
-
+        yPosition = drawTextWrapped(canvas, paint, "File: " + editText.getText().toString(), padding, yPosition, maxWidth);
+        yPosition += lineHeight;
+        yPosition = drawTextWrapped(canvas, paint, "-------------------------------------------------", padding, yPosition, maxWidth);
+        yPosition += lineHeight;
         String[] strings = {
                 "Word Count: " + wordCount,
                 "Unique Words: " + uniqueWords,
@@ -479,45 +499,60 @@ public class MainActivity extends AppCompatActivity {
 
         for (String str : strings) {
             yPosition = drawTextWrapped(canvas, paint, str, padding, yPosition, maxWidth);
-            yPosition += 30;
+            yPosition += lineHeight;
         }
 
         if (topFive != null && !topFive.isEmpty()) {
             for (int i = 0; i < 5; i++) {
                 String str = "[" + (i + 1) + "] " + topFive.get(i).getWord() + " - " + topFive.get(i).getCount();
                 yPosition = drawTextWrapped(canvas, paint, str, padding, yPosition, maxWidth);
-                yPosition += 30;
+                yPosition += lineHeight;
             }
         }
+
         drawTextWrapped(canvas, paint, "Generated Paragraph: " + paragraph, padding, yPosition, maxWidth);
         document.finishPage(page);
 
-        FileOutputStream outputStream = null;
-        try {
-            File directory = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
-            if (directory != null && !directory.exists()) {
-                boolean dirCreated = directory.mkdirs();
-                Log.d("PDFCreation", "Directory created: " + dirCreated);
-            }
-
-            File outputFile = new File(directory, "example.pdf");
-            outputStream = new FileOutputStream(outputFile);
+        try (FileOutputStream outputStream = new FileOutputStream(new File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "example.pdf"))) {
             document.writeTo(outputStream);
-            Toast.makeText(this, "PDF saved to: " + outputFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
-            Log.d("PDFCreation", "PDF saved to: " + outputFile.getAbsolutePath());
-
+            Toast.makeText(this, "PDF saved successfully", Toast.LENGTH_LONG).show();
         } catch (IOException e) {
             Log.e("PDFCreation", "Error: " + e.getMessage(), e);
         } finally {
             document.close();
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                } catch (IOException e) {
-                    Log.e("PDFCreation", "Error closing stream: " + e.getMessage(), e);
-                }
+        }
+    }
+    private int calculateTotalHeight(Paint paint, int padding, int lineHeight) {
+        int totalLines = 0;
+
+        // Lines for static strings
+        totalLines += 2; // For "File:" and separator line
+        totalLines += 4; // For "Word Count", "Unique Words", "Sentence Count", "Top Five Words"
+
+        if (topFive != null && !topFive.isEmpty()) {
+            totalLines += topFive.size(); // Lines for top five words
+        }
+
+        // Calculate lines for the paragraph
+        int maxWidth = 300 - 2 * padding; // Assuming maxWidth based on page width
+        String[] paragraphWords = paragraph.split("\\s+");
+        int currentLineWidth = 0;
+
+        for (String word : paragraphWords) {
+            int wordWidth = (int) paint.measureText(word + " ");
+            if (currentLineWidth + wordWidth > maxWidth) {
+                totalLines++;
+                currentLineWidth = wordWidth;
+            } else {
+                currentLineWidth += wordWidth;
             }
         }
+        // Add line for remaining words, if any
+        if (currentLineWidth > 0) {
+            totalLines++;
+        }
+
+        return ((totalLines * lineHeight) + (2 * padding))/2;
     }
     private void replaceWordToPdf(String text) {
         PdfDocument document = new PdfDocument();
@@ -581,11 +616,10 @@ public class MainActivity extends AppCompatActivity {
                 line.append(word).append(" ");
             } else {
                 canvas.drawText(line.toString(), x, y, paint);
-                y += paint.descent() - paint.ascent(); // Move to next line
+                y += paint.descent() - paint.ascent();
                 line = new StringBuilder(word + " ");
             }
         }
-        // Draw the last line
         if (!line.toString().isEmpty()) {
             canvas.drawText(line.toString(), x, y, paint);
         }
