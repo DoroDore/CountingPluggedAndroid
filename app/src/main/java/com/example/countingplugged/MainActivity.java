@@ -197,6 +197,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Read a file and store the words in a map
      */
+    //Data Structures - HashMap Example
     public void readToMap(String filePath) {
         words.clear();
         try {
@@ -219,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Get the word count of a file
-     * @param filePath
+     * @param filePath to read
      * @return word count
      */
     public int getWordCount(String filePath) {
@@ -247,6 +248,11 @@ public class MainActivity extends AppCompatActivity {
         return count;
     }
 
+    /**
+     * Get the sentence count of a file
+     * @param filePath to read
+     * @return sentence count
+     */
     public int getSentenceCount(String filePath) {
         newTextChecker();
         int count = 0;
@@ -272,6 +278,12 @@ public class MainActivity extends AppCompatActivity {
         return count;
     }
 
+    /**
+     * Get the unique words from a file
+     * @param filePath to read
+     * @return LinkedHashSet of unique words
+     */
+    //Data Structures - LinkedHashSet Example
     public LinkedHashSet<String> getUniqueWords(String filePath) {
         newTextChecker();
         LinkedHashSet<String> uniqueWordsMap = new LinkedHashSet<>();
@@ -302,6 +314,11 @@ public class MainActivity extends AppCompatActivity {
         uniqueWords = uniqueWordsMap;
         return uniqueWordsMap;
     }
+
+    /**
+     * Replace a word in a file
+     */
+    //Algorithm - Creative Feature
     public String replaceWord(String word, String newWord) {
         String text = null;
         try {
@@ -346,6 +363,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Load common words from assets
      */
+    //Data Structures - HashSet Example
     public void loadCommonWords() {
         try {
             AssetManager assetManager = getAssets();
@@ -358,6 +376,14 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Get the top words from a map
+     * @param words
+     * @param commonWords
+     * @param limit
+     * @return
+     */
     public static ArrayList<Word> getTop(Map<String, Integer> words, HashSet<String> commonWords, int limit) {
         newTextChecker();
         ArrayList<Word> topWords = new ArrayList<>();
@@ -381,6 +407,13 @@ public class MainActivity extends AppCompatActivity {
         topFive = topWords;
         return topWords;
     }
+
+    /**
+     * Generate a paragraph based on the words in the text
+     * @param temperature
+     * @return
+     */
+    //Algorithms - Paragraph Generator
     public String generateParagraph(int temperature) {
         readToMap(editText.getText().toString());
         ArrayList<Word> wordGroup = getTop(words, commonWords, words.size()/10*temperature); //This makes it so that less common words get cut out the lower the temp
@@ -394,6 +427,11 @@ public class MainActivity extends AppCompatActivity {
         paragraph = thing;
         return thing;
     }
+
+    /**
+     * Read text from a PDF file and store the words in a map
+     * @param fileName
+     */
     public void readPdfToMap(String fileName) {
         words.clear();
         try {
@@ -420,6 +458,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Read text from a PDF file
+     */
     public String readTextFromPdf(String fileName) {
         try {
             // Access PDF from assets
@@ -439,6 +480,11 @@ public class MainActivity extends AppCompatActivity {
         }
         return "";
     }
+
+    /**
+     * Check if the text in the EditText has changed, resetting values if it has.
+     * This prevents conflicting statistics from conflicting files to be saved together.
+     */
     public static void newTextChecker() {
         if (!editText.getText().toString().equals(currentFileName)) {
             wordCount = -1;
@@ -448,6 +494,10 @@ public class MainActivity extends AppCompatActivity {
             paragraph = null;
         }
     }
+
+    /**
+     * Check if all the required data is available before exporting the PDF
+     */
     public void finalExportCheck() {
         newTextChecker();
         if (wordCount == -1) {
@@ -466,7 +516,7 @@ public class MainActivity extends AppCompatActivity {
             generateParagraph(5);
         }
     }
-
+    //Data Structures - Array Example
     public void createPdf() {
         finalExportCheck();
 
@@ -490,7 +540,7 @@ public class MainActivity extends AppCompatActivity {
         yPosition += lineHeight;
         yPosition = drawTextWrapped(canvas, paint, "-------------------------------------------------", padding, yPosition, maxWidth);
         yPosition += lineHeight;
-        String[] strings = {
+        String[] strings = { //Using an array to keep all my code organized for ease of editing
                 "Word Count: " + wordCount,
                 "Unique Words: " + uniqueWords,
                 "Sentence Count: " + sentenceCount,
@@ -554,6 +604,7 @@ public class MainActivity extends AppCompatActivity {
 
         return ((totalLines * lineHeight) + (2 * padding))/2;
     }
+    //Algorithm - Creative Feature
     private void replaceWordToPdf(String text) {
         PdfDocument document = new PdfDocument();
         PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(600, 500, 1).create();
@@ -581,7 +632,7 @@ public class MainActivity extends AppCompatActivity {
             File outputFile = new File(directory, "wordChanged.pdf");
             outputStream = new FileOutputStream(outputFile);
             document.writeTo(outputStream);
-            Toast.makeText(this, "PDF saved to: " + outputFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "PDF saved to: " + outputFile.getAbsolutePath(), Toast.LENGTH_LONG).show(); //Toast gives feedback on the user's end to confirm success!
             Log.d("PDFCreation", "PDF saved to: " + outputFile.getAbsolutePath());
 
         } catch (IOException e) {
