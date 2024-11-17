@@ -13,7 +13,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 public class InstructionsHome extends AppCompatActivity {
-    private Button backButton, programOverviewButton, readingFilesButton, paragraphGenerationButton;
+    private Button backButton, programOverviewButton, readingFilesButton, paragraphGenerationButton, wordReplacerButton;
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,6 +29,7 @@ public class InstructionsHome extends AppCompatActivity {
         programOverviewButton = findViewById(R.id.buttonProgramOverview);
         readingFilesButton = findViewById(R.id.buttonReadingFiles);
         paragraphGenerationButton = findViewById(R.id.buttonParagraphGeneration);
+        wordReplacerButton = findViewById(R.id.buttonWordReplacer);
 
         backButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -58,6 +59,13 @@ public class InstructionsHome extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent intent = new Intent(InstructionsHome.this, InstructionParagraphGeneration.class);
+                startActivity(intent);
+            }
+        });
+        wordReplacerButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(InstructionsHome.this, InstructionWordReplacer.class);
                 startActivity(intent);
             }
         });
